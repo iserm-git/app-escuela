@@ -1,118 +1,173 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
-  Animated,
-  Button,
-  Image,
   ScrollView,
   StyleSheet,
+  Alert,
+  ActivityIndicator,
   TouchableOpacity,
 } from "react-native";
+import { Swipeable } from "react-native-gesture-handler";
 import { MaterialIcons } from "@expo/vector-icons";
-import ModalAlumno from "../../components/utils/ModalAlumno"; // Importa el modal
-
-const alumnoImage = require("../../assets/alumno_image1.png");
+import {
+  collection,
+  query,
+  onSnapshot,
+  doc,
+  deleteDoc,
+} from "firebase/firestore";
+import { db } from "../../firebaseConfig";
+import { getAuth } from "firebase/auth";
 
 const AlumnoScreen = ({ navigation }) => {
-  const [modalVisible, setModalVisible] = useState(false);
-
-  const fadeAnim = useRef(new Animated.Value(0)).current; // Valor inicial para la opacidad
-
-  const alumnos = [
-    { id: 1, nombre: "Juan Pérez", sem: "7A" },
-    { id: 2, nombre: "Ana Gómez", sem: "7A" },
-    { id: 3, nombre: "Luis Martínez", sem: "7B" },
-    { id: 4, nombre: "Francisco Nuñez", sem: "7A" },
-    { id: 5, nombre: "Berenice Aguilar", sem: "7A" },
-    { id: 6, nombre: "Jose Hurtado", sem: "7B" },
-  ];
+  const [alumnos, setAlumnos] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Animar la opacidad al montar el componente
-    Animated.timing(fadeAnim, {
-      toValue: 1, // La vista será completamente visible
-      duration: 3000, // Duración de la animación en milisegundos
-      useNativeDriver: true, // Usa el driver nativo para mejorar el rendimiento
-    }).start();
-  }, [fadeAnim]);
+    const auth = getAuth();
+    const user = auth.currentUser;
+
+    if (!user) {
+      Alert.alert("Error", "Debes iniciar sesión", [
+        { text: "ACEPTAR", onPress: () => navigation.replace("Login") },
+      ]);
+      return;
+    }
+
+    // Recuperar alumnos de Firestore
+    const q = query(collection(db, "alumnos"));
+    const unsubscribe = onSnapshot(
+      q,
+      (querySnapshot) => {
+        const alumnosList = querySnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setAlumnos(alumnosList);
+        setLoading(false);
+      },
+      (error) => {
+        console.error("Error en la carga de alumnos:", error);
+        Alert.alert("Error", "No se pudo cargar la lista de alumnos.");
+      }
+    );
+
+    return () => unsubscribe();
+  }, [navigation]);
+
+  // Borrar alumno
+  const handleDelete = async (id) => {
+    try {
+      await deleteDoc(doc(db, "alumnos", id));
+      Alert.alert("Éxito", "Alumno eliminado correctamente.");
+    } catch (error) {
+      console.error("Error al eliminar alumno:", error);
+      Alert.alert("Error", "No se pudo eliminar el alumno.");
+    }
+  };
+
+  // Renderizado de botón eliminar
+  const renderDeleteAction = (id) => (
+    <TouchableOpacity
+      style={[styles.actionButton, { backgroundColor: "red" }]}
+      onPress={() =>
+        Alert.alert(
+          "Confirmar eliminación",
+          "¿Estás seguro de que deseas eliminar este alumno?",
+          [
+            { text: "Cancelar", style: "cancel" },
+            { text: "Eliminar", onPress: () => handleDelete(id) },
+          ]
+        )
+      }
+    >
+      <MaterialIcons name="delete" size={28} color="white" />
+    </TouchableOpacity>
+  );
+
+  // Renderizado de botón editar
+  const renderEditAction = (id) => (
+    <TouchableOpacity
+      style={[styles.actionButton, { backgroundColor: "blue" }]}
+      onPress={() => navigation.navigate("AlumnoEdit", { alumnoId: id })}
+    >
+      <MaterialIcons name="edit" size={28} color="white" />
+    </TouchableOpacity>
+  );
+
+  if (loading) {
+    return (
+      <View style={styles.loaderContainer}>
+        <ActivityIndicator size="large" color="#6200ea" />
+        <Text>Cargando información de alumnos ...</Text>
+      </View>
+    );
+  }
 
   return (
-    <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
-      <ScrollView>
-        <View style={styles.headerBar}>
-          <TouchableOpacity style={styles.iconButton}>
-            <MaterialIcons name="school" size={24} color="white" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Listado de Alumnos</Text>
-        </View>
-        {alumnos.map((alumno) => (
-          <View key={alumno.id} style={styles.alumnoCard}>
-            <Image source={alumnoImage} style={styles.alumnoImage} />
-            <View style={styles.alumnoInfo}>
+    <ScrollView>
+      <View style={styles.headerBar}>
+        <Text style={styles.headerTitle}>Lista de Alumnos</Text>
+        // Botón para agregar alumno
+        <TouchableOpacity
+          onPress={() => navigation.navigate("AlumnoAdd")}
+          style={styles.addButton}
+        >
+          <MaterialIcons name="add" size={28} color="white" />
+        </TouchableOpacity>
+      </View>
+      {alumnos.length > 0 ? (
+        alumnos.map((alumno) => (
+          <Swipeable
+            key={alumno.id}
+            renderRightActions={() => renderDeleteAction(alumno.id)} // Acción de eliminar
+            renderLeftActions={() => renderEditAction(alumno.id)} // Acción de editar
+          >
+            <View style={styles.alumnoCard}>
               <Text style={styles.alumnoNombre}>{alumno.nombre}</Text>
-              <Text style={styles.alumnoSem}>Semestre: {alumno.sem}</Text>
-              <Button
-                title="Ver Detalles"
-                onPress={() =>
-                  navigation.navigate("AlumnoDetails", {
-                    nombre: alumno.nombre,
-                  })
-                }
-              />
-              <TouchableOpacity
-                onPress={() => setModalVisible(true)}
-                style={styles.button}
-              >
-                <Text style={styles.buttonText}>Mostrar Modal</Text>
-              </TouchableOpacity>
+              <Text style={styles.alumnoSem}>Semestre: {alumno.semestre}</Text>
             </View>
-          </View>
-        ))}
-      </ScrollView>
-      <ModalAlumno
-        modalVisible={modalVisible}
-        setModalVisible={setModalVisible}
-      />
-    </Animated.View>
+          </Swipeable>
+        ))
+      ) : (
+        <Text style={styles.noDataText}>No hay alumnos registrados.</Text>
+      )}
+    </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  loaderContainer: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
+    justifyContent: "center",
+    alignItems: "center",
   },
   headerBar: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    backgroundColor: "#6200ea", // Color de fondo del encabezado
+    backgroundColor: "#6200ea",
     paddingHorizontal: 20,
     paddingVertical: 10,
   },
-  title: {
-    fontSize: 24,
+  headerTitle: {
+    fontSize: 18,
     fontWeight: "bold",
-    marginBottom: 16,
-    textAlign: "center",
+    color: "white",
+    flex: 1,
+  },
+  addButton: {
+    padding: 8,
   },
   alumnoCard: {
-    flexDirection: "row",
+    flexDirection: "column",
     padding: 10,
     marginBottom: 16,
     backgroundColor: "#fff",
     borderRadius: 8,
     elevation: 3,
-  },
-  alumnoImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-  },
-  alumnoInfo: {
-    marginLeft: 16,
-    justifyContent: "center",
+    marginHorizontal: 10,
   },
   alumnoNombre: {
     fontSize: 18,
@@ -122,24 +177,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#777",
   },
-  buttonText: {
-    color: "blue",
+  noDataText: {
+    textAlign: "center",
+    marginTop: 20,
+    fontSize: 16,
+    color: "#777",
   },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "white",
-    textAlign: "left",
-    flex: 1,
-    paddingLeft: 20,
-  },
-  iconButton: {
-    padding: 2,
-  },
-  logo: {
-    marginTop: 10,
-    resizeMode: "contain",
-    alignSelf: "center",
+  actionButton: {
+    justifyContent: "center",
+    alignItems: "center",
+    width: 75,
+    height: "100%",
   },
 });
 

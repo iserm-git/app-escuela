@@ -1,120 +1,194 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
-  Button,
-  Image,
   ScrollView,
   StyleSheet,
+  Alert,
+  ActivityIndicator,
   TouchableOpacity,
 } from "react-native";
-import { MaterialIcons, FontAwesome5, Entypo } from "@expo/vector-icons";
-
-const profesorImage = require("../../assets/profesor_image1.png");
+import { Swipeable } from "react-native-gesture-handler";
+import { MaterialIcons } from "@expo/vector-icons";
+import {
+  collection,
+  query,
+  onSnapshot,
+  doc,
+  deleteDoc,
+} from "firebase/firestore";
+import { db } from "../../firebaseConfig";
+import { getAuth } from "firebase/auth";
 
 const ProfesorScreen = ({ navigation }) => {
-  const profesores = [
-    { id: 1, nombre: "Antonio Suárez Zinzun", carrera: "ISC" },
-    { id: 2, nombre: "Roberto Suárez Zinzun", carrera: "ISC" },
-    { id: 3, nombre: "Francisco Rodríguez Díaz", carrera: "ISC" },
-    { id: 4, nombre: "Ana Celia Segundo Sevilla", carrera: "ISC" },
-    { id: 5, nombre: "Claudia Baeza Lara", carrera: "ISC" },
-    { id: 6, nombre: "Ricardo García Cruz", carrera: "ISC" },
-  ];
+  const [profesores, setProfesores] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const auth = getAuth();
+    const user = auth.currentUser;
+
+    if (!user) {
+      Alert.alert("Error", "Debes iniciar sesión", [
+        { text: "ACEPTAR", onPress: () => navigation.replace("Login") },
+      ]);
+      return;
+    }
+
+    // Consultar la colección "profesores" en Firestore
+    const q = query(collection(db, "profesores"));
+    const unsubscribe = onSnapshot(
+      q,
+      (querySnapshot) => {
+        const profesoresList = querySnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setProfesores(profesoresList);
+        setLoading(false);
+      },
+      (error) => {
+        console.error("Error en la carga de profesores:", error);
+        Alert.alert("Error", "No se pudo cargar la lista de profesores.");
+      }
+    );
+
+    return () => unsubscribe();
+  }, [navigation]);
+
+  // Borrar profesor
+  const handleDelete = async (id) => {
+    try {
+      await deleteDoc(doc(db, "profesores", id));
+      Alert.alert("Éxito", "Profesor eliminado correctamente.");
+    } catch (error) {
+      console.error("Error al eliminar profesor:", error);
+      Alert.alert("Error", "No se pudo eliminar el profesor.");
+    }
+  };
+
+  // Renderizar botón borrar
+  const renderDeleteAction = (id) => (
+    <TouchableOpacity
+      style={[styles.actionButton, { backgroundColor: "red" }]}
+      onPress={() =>
+        Alert.alert(
+          "Confirmar eliminación",
+          "¿Estás seguro de que deseas eliminar este profesor?",
+          [
+            { text: "Cancelar", style: "cancel" },
+            { text: "Eliminar", onPress: () => handleDelete(id) },
+          ]
+        )
+      }
+    >
+      <MaterialIcons name="delete" size={28} color="white" />
+    </TouchableOpacity>
+  );
+
+  // Renderizar botón editar
+  const renderEditAction = (id) => (
+    <TouchableOpacity
+      style={[styles.actionButton, { backgroundColor: "blue" }]}
+      onPress={() => navigation.navigate("ProfesorEdit", { profesorId: id })}
+    >
+      <MaterialIcons name="edit" size={28} color="white" />
+    </TouchableOpacity>
+  );
+
+  if (loading) {
+    return (
+      <View style={styles.loaderContainer}>
+        <ActivityIndicator size="large" color="#6200ea" />
+        <Text>Cargando información de profesores...</Text>
+      </View>
+    );
+  }
 
   return (
-    <View style={styles.container}>
-      <ScrollView>
-        <View style={styles.headerBar}>
-          <TouchableOpacity style={styles.iconButton}>
-            <MaterialIcons name="school" size={24} color="white" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Listado de Profesores</Text>
-        </View>
-        {profesores.map((profesor) => (
-          <View key={profesor.id} style={styles.alumnoCard}>
-            <Image source={profesorImage} style={styles.profesorImage} />
-            <View style={styles.alumnoInfo}>
-              <Text style={styles.alumnoNombre}>{profesor.nombre}</Text>
-              <Text style={styles.alumnoSem}>Carrera: {profesor.carrera}</Text>
-              <Button
-                title="Ver Detalles"
-                onPress={() =>
-                  navigation.navigate("AlumnoDetails", {
-                    nombre: alumno.nombre,
-                  })
-                }
-              />
+    <ScrollView>
+      <View style={styles.headerBar}>
+        <Text style={styles.headerTitle}>Lista de Profesores</Text>
+        <TouchableOpacity
+          onPress={() => navigation.navigate("ProfesorAdd")}
+          style={styles.addButton}
+        >
+          <MaterialIcons name="add" size={28} color="white" />
+        </TouchableOpacity>
+      </View>
+      {profesores.length > 0 ? (
+        profesores.map((profesor) => (
+          <Swipeable
+            key={profesor.id}
+            renderRightActions={() => renderDeleteAction(profesor.id)}
+            renderLeftActions={() => renderEditAction(profesor.id)}
+          >
+            <View style={styles.profesorCard}>
+              <Text style={styles.profesorNombre}>{profesor.nombre}</Text>
+              <Text style={styles.profesorCarrera}>
+                Carrera: {profesor.carrera}
+              </Text>
             </View>
-          </View>
-        ))}
-      </ScrollView>
-    </View>
+          </Swipeable>
+        ))
+      ) : (
+        <Text style={styles.noDataText}>No hay profesores registrados.</Text>
+      )}
+    </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  loaderContainer: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
+    justifyContent: "center",
+    alignItems: "center",
   },
   headerBar: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    backgroundColor: "#6200ea", // Color de fondo del encabezado
+    backgroundColor: "#6200ea",
     paddingHorizontal: 20,
     paddingVertical: 10,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: "bold",
-    marginBottom: 16,
-    textAlign: "center",
-  },
-  alumnoCard: {
-    flexDirection: "row",
-    padding: 10,
-    marginBottom: 16,
-    backgroundColor: "#fff",
-    borderRadius: 8,
-    elevation: 3,
-  },
-  profesorImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-  },
-  alumnoInfo: {
-    marginLeft: 16,
-    justifyContent: "center",
-  },
-  alumnoNombre: {
-    fontSize: 18,
-    fontWeight: "bold",
-  },
-  alumnoSem: {
-    fontSize: 16,
-    color: "#777",
-  },
-  buttonText: {
-    color: "blue",
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: "bold",
     color: "white",
-    textAlign: "left",
     flex: 1,
-    paddingLeft: 20,
   },
-  iconButton: {
-    padding: 2,
+  addButton: {
+    padding: 8,
   },
-  logo: {
-    marginTop: 10,
-    resizeMode: "contain",
-    alignSelf: "center",
+  profesorCard: {
+    flexDirection: "column",
+    padding: 10,
+    marginBottom: 16,
+    backgroundColor: "#fff",
+    borderRadius: 8,
+    elevation: 3,
+    marginHorizontal: 10,
+  },
+  profesorNombre: {
+    fontSize: 18,
+    fontWeight: "bold",
+  },
+  profesorCarrera: {
+    fontSize: 16,
+    color: "#777",
+  },
+  noDataText: {
+    textAlign: "center",
+    marginTop: 20,
+    fontSize: 16,
+    color: "#777",
+  },
+  actionButton: {
+    justifyContent: "center",
+    alignItems: "center",
+    width: 75,
+    height: "100%",
   },
 });
 

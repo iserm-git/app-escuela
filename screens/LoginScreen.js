@@ -9,53 +9,34 @@ import {
   TouchableOpacity,
   Alert,
 } from "react-native";
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { auth } from "../firebaseConfig";
 
-const loginImage = require("../assets/login_image.png"); // Imagen de inicio de sesión
+const loginImage = require("../assets/login_image.png");
 
 const LoginScreen = ({ navigation }) => {
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  const handleLogin = () => {
-    Alert.alert(
-      "Confirmación de inicio de sesión",
-      "¿Estás seguro de que deseas iniciar sesión?",
-      [
-        {
-          text: "Cancelar",
-          style: "cancel",
-        },
-        {
-          text: "Aceptar",
-          onPress: () => {
-            // Si se presiona "Aceptar", ejecutar la autenticación
-            if (username && password) {
-              navigation.replace("Home"); // Navegar a la pantalla Home
-            } else {
-              Alert.alert(
-                "Error",
-                "Por favor, ingrese un usuario y contraseña válidos."
-              );
-            }
-          },
-        },
-      ],
-      { cancelable: false }
-    );
+  const handleLogin = async () => {
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      navigation.replace("Home");
+    } catch (error) {
+      Alert.alert("Error de Inicio de Sesión", error.message);
+    }
   };
 
   return (
     <View style={styles.container}>
       <Image source={loginImage} style={styles.loginImage} />
       <Text style={styles.title}>Iniciar Sesión</Text>
-
       <TextInput
         style={styles.input}
-        placeholder="Usuario"
-        value={username}
-        onChangeText={setUsername}
+        placeholder="Correo Electrónico"
+        value={email}
+        onChangeText={setEmail}
       />
-
       <TextInput
         style={styles.input}
         placeholder="Contraseña"
@@ -63,18 +44,11 @@ const LoginScreen = ({ navigation }) => {
         onChangeText={setPassword}
         secureTextEntry
       />
-
       <Button title="Iniciar Sesión" onPress={handleLogin} />
-
       <View style={styles.linksContainer}>
-        <TouchableOpacity
-          onPress={() => {
-            /* Agrega la lógica para recuperar contraseña */
-          }}
-        >
+        <TouchableOpacity onPress={() => {}}>
           <Text style={styles.link}>¿Olvidaste tu contraseña?</Text>
         </TouchableOpacity>
-
         <TouchableOpacity onPress={() => {}}>
           <Text style={styles.link}>Regístrate</Text>
         </TouchableOpacity>

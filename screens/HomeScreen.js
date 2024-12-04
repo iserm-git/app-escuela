@@ -10,16 +10,24 @@ import {
 import { MaterialIcons, FontAwesome5, Entypo } from "@expo/vector-icons";
 import { CommonActions } from "@react-navigation/native";
 
+import { signOut } from "firebase/auth";
+import { auth } from "../firebaseConfig";
+
 const HomeScreen = ({ navigation }) => {
   const [menuVisible, setMenuVisible] = useState(false);
 
-  const handleLogout = () => {
-    navigation.dispatch(
-      CommonActions.reset({
-        index: 0,
-        routes: [{ name: "Login" }],
-      })
-    );
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [{ name: "Login" }],
+        })
+      );
+    } catch (error) {
+      Alert.alert("Error al cerrar sesión", error.message);
+    }
   };
 
   const handleProfile = () => {

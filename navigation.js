@@ -5,7 +5,12 @@ import LoginScreen from "./screens/LoginScreen";
 import HomeScreen from "./screens/HomeScreen";
 import AlumnoScreen from "./screens/Alumnos/AlumnoScreen";
 import AlumnoDetailScreen from "./screens/Alumnos/AlumnoDetailScreen";
+import AlumnoAdd from "./screens/Alumnos/AlumnoAdd";
+import AlumnoEdit from "./screens/Alumnos/AlumnoEdit";
 import ProfesorScreen from "./screens/Profesores/ProfesorScreen";
+// import ProfesorDetailScreen from "./screens/Profesores/ProfesorDetailScreen";
+import ProfesorAdd from "./screens/Profesores/ProfesorAdd";
+import ProfesorEdit from "./screens/Profesores/ProfesorEdit";
 import GrupoScreen from "./screens/Grupos/GrupoScreen";
 import GrupoDetailScreen from "./screens/Grupos/GrupoDetailScreen";
 import MateriaScreen from "./screens/Materias/MateriaScreen";
@@ -36,9 +41,35 @@ const StackNavigator = () => {
         options={{ title: "Detalle de alumno" }}
       />
       <Stack.Screen
+        name="AlumnoAdd"
+        component={AlumnoAdd}
+        options={{ title: "Agregar Alumno" }}
+      />
+      <Stack.Screen
+        name="AlumnoEdit"
+        component={AlumnoEdit}
+        options={{ title: "Editar Alumno" }}
+      />
+      <Stack.Screen
         name="ProfesorList"
         component={ProfesorScreen}
         options={{ title: "Lista de Profesores" }}
+      />
+      {/* <Stack.Screen
+        name="ProfesorDetails"
+        component={ProfesorDetailScreen}
+        options={{ title: "Detalle de alumno" }}
+      /> */}
+      <Stack.Screen
+        name="ProfesorAdd"
+        component={ProfesorAdd}
+        options={{ title: "Agregar Profesor" }}
+      />
+
+      <Stack.Screen
+        name="ProfesorEdit"
+        component={ProfesorEdit}
+        options={{ title: "Editar Profesor" }}
       />
       <Stack.Screen
         name="MateriaList"
